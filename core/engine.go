@@ -300,6 +300,7 @@ type queuedMessage struct {
 	images            []ImageAttachment
 	files             []FileAttachment
 	fromVoice         bool
+	silentEmpty       bool
 	userID            string
 	userName          string // sender's display name for sender injection
 	msgPlatform       string // platform name for sender injection
@@ -323,6 +324,7 @@ type interactiveState struct {
 	pendingMessages        []queuedMessage // messages queued while session was busy
 	approveAll             bool            // when true, auto-approve all permission requests for this session
 	fromVoice              bool            // true if current turn originated from voice transcription
+	silentEmpty            bool            // true if empty agent output should be suppressed (heartbeat silent mode)
 	sideText               string
 	deleteMode             *deleteModeState
 	modelSwitch            *modelSwitchState
@@ -1628,12 +1630,13 @@ func (e *Engine) ExecuteHeartbeat(sessionKey, prompt string, silent bool) error 
 	}
 
 	msg := &Message{
-		SessionKey: sessionKey,
-		Platform:   platformName,
-		UserID:     "heartbeat",
-		UserName:   "heartbeat",
-		Content:    prompt,
-		ReplyCtx:   replyCtx,
+		SessionKey:  sessionKey,
+		Platform:    platformName,
+		UserID:      "heartbeat",
+		UserName:    "heartbeat",
+		Content:     prompt,
+		ReplyCtx:    replyCtx,
+		SilentEmpty: silent,
 	}
 
 	session := e.sessions.GetOrCreateActive(sessionKey)
@@ -2454,6 +2457,7 @@ func (e *Engine) queueMessageForBusySession(p Platform, msg *Message, interactiv
 		images:            msg.Images,
 		files:             msg.Files,
 		fromVoice:         msg.FromVoice,
+		silentEmpty:       msg.SilentEmpty,
 		userID:            msg.UserID,
 		userName:          msg.UserName,
 		msgPlatform:       msg.Platform,
@@ -2909,6 +2913,7 @@ func (e *Engine) processInteractiveMessageWith(p Platform, msg *Message, session
 	state.mu.Lock()
 	state.currentMessageID = msg.MessageID
 	state.fromVoice = msg.FromVoice
+	state.silentEmpty = msg.SilentEmpty
 	state.sideText = ""
 	state.mu.Unlock()
 
@@ -4449,7 +4454,17 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
 				fullResponse = strings.Join(textParts, "")
 			}
 			if fullResponse == "" {
-				fullResponse = e.i18n.T(MsgEmptyResponse)
+				// Silent heartbeat: if the agent produced no output,
+				// drop the turn entirely instead of sending the
+				// localized "(空响应)" / "(empty response)" fallback.
+				// Non-silent heartbeats and normal user messages are
+				// unaffected — they fall through to the i18n fallback.
+				state.mu.Lock()
+				suppress := state.silentEmpty
+				state.mu.Unlock()
+				if !suppress {
+					fullResponse = e.i18n.T(MsgEmptyResponse)
+				}
 			}
 
 			// Strip any agent-self-reported "[ctx: ~XX%]" marker so it does not
@@ -4764,6 +4779,7 @@ func (e *Engine) processInteractiveEvents(state *interactiveState, session *Sess
 				state.replyCtx = queued.replyCtx
 				state.currentMessageID = queued.messageID
 				state.fromVoice = queued.fromVoice
+				state.silentEmpty = queued.silentEmpty
 				state.currentTurnUserMessageTimeMs = queued.userMessageTimeMs
 				state.mu.Unlock()
 
@@ -5090,6 +5106,7 @@ func (e *Engine) drainPendingMessages(state *interactiveState, session *Session,
 		state.replyCtx = queued.replyCtx
 		state.currentMessageID = queued.messageID
 		state.fromVoice = queued.fromVoice
+		state.silentEmpty = queued.silentEmpty
 		state.currentTurnUserMessageTimeMs = queued.userMessageTimeMs
 		state.mu.Unlock()
 
