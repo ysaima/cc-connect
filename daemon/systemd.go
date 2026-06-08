@@ -175,7 +175,13 @@ func (m *systemdManager) buildUnit(cfg Config) string {
 	fmt.Fprintf(&sb, "Environment=\"CC_LOG_FILE=%s\"\n", cfg.LogFile)
 	fmt.Fprintf(&sb, "Environment=\"CC_LOG_MAX_SIZE=%d\"\n", cfg.LogMaxSize)
 	if cfg.EnvPATH != "" {
-		fmt.Fprintf(&sb, "Environment=\"PATH=%s\"\n", cfg.EnvPATH)
+		// Escape backslashes and inner double quotes so the
+		// value stays inside the surrounding double quotes after
+		// systemd parses the line. This matters for WSL users
+		// whose PATH may include Windows-style backslashes
+		// (e.g. C:\Program Files\Git\cmd) or, less commonly, a
+		// directory whose name contains a double quote.
+		fmt.Fprintf(&sb, "Environment=\"PATH=%s\"\n", escapeSystemdEnvValue(cfg.EnvPATH))
 	}
 	if len(cfg.EnvExtra) > 0 {
 		keys := make([]string, 0, len(cfg.EnvExtra))
@@ -194,6 +200,17 @@ func (m *systemdManager) buildUnit(cfg Config) string {
 		sb.WriteString("WantedBy=default.target\n")
 	}
 	return sb.String()
+}
+
+// escapeSystemdEnvValue escapes a value that will be wrapped in
+// double quotes in a systemd Environment= directive. It escapes
+// backslashes (must come first, otherwise the escaped backslash
+// itself would be re-escaped) and inner double quotes that would
+// otherwise terminate the systemd quoting early.
+func escapeSystemdEnvValue(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
+	return s
 }
 
 func runSystemctl(args ...string) (string, error) {
