@@ -1,6 +1,7 @@
 # Changelog
 
 ### New Features
+- **DingTalk message list title**: derive the `markdown.title` field on outgoing DingTalk messages from the message content (markdown stripped, first non-empty line, truncated to 20 runes) instead of the hardcoded `"reply"`. The DingTalk chat list now shows the actual reply preview instead of "reply" on every entry. Empty / pure-format / pure-emoji messages still fall back to "reply" so the title is never blank (#1269).
 - **QQ Bot inline keyboard**: add support for inline keyboard buttons and INTERACTION_CREATE events. Permission requests now render as clickable buttons instead of text replies. Requires enabling the INTERACTION capability (bit 26) in the QQ Open Platform bot settings.
 
 ### ⚠️ QQ Bot Intent Configuration Change
