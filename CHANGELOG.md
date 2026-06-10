@@ -1,6 +1,7 @@
 # Changelog
 
 ### New Features
+- **`[stream_preview] stop_behavior = "freeze"`**: when the user interrupts an agent turn with `/stop`, the partial streaming preview message is now optionally preserved on the IM side instead of being unconditionally deleted (#1295). Users can read the partial answer and quote it in their next instruction. Add `stop_behavior = "freeze"` under `[stream_preview]`; the default (`"discard"`) preserves the prior behavior. The frozen preview is detached from the streaming lifecycle so the next turn starts a fresh preview without conflict.
 - **`cc-connect cron add --silent`**: expose the `--silent` flag on the cron add CLI so users can suppress the cron start notification when creating a job. The server already accepted `silent` on `/cron/add`; only the CLI side was missing (#858).
 - **QQ Bot inline keyboard**: add support for inline keyboard buttons and INTERACTION_CREATE events. Permission requests now render as clickable buttons instead of text replies. Requires enabling the INTERACTION capability (bit 26) in the QQ Open Platform bot settings.
 
