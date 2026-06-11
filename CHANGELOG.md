@@ -4,6 +4,9 @@
 - **`cc-connect cron add --silent`**: expose the `--silent` flag on the cron add CLI so users can suppress the cron start notification when creating a job. The server already accepted `silent` on `/cron/add`; only the CLI side was missing (#858).
 - **QQ Bot inline keyboard**: add support for inline keyboard buttons and INTERACTION_CREATE events. Permission requests now render as clickable buttons instead of text replies. Requires enabling the INTERACTION capability (bit 26) in the QQ Open Platform bot settings.
 
+### Fixed
+- **Quiet mode "final message only" enforced**: when `[display].mode = "quiet"` (or legacy `[projects.X].quiet = true`), the engine now slices the accumulated assistant text at the last `tool_use` boundary and delivers only the text block emitted AFTER the last tool call. Previously, the pre-tool "lead-in" (e.g. "Let me check that for you...") was concatenated with the post-tool answer, glued together with no separator in most cases — clashing with the inline doc that promised "final message only" and producing visibly malformed replies. New opt-in `[display].prepend_pre_tool_text = true` restores the old "all text in one card" rendering for users who relied on it. Has no effect in `full` / `compact` mode. The fix lives in the platform-agnostic `processInteractiveEvents` finalization path, so all platforms (Slack, Discord, Feishu, Telegram, DingTalk, WeChat, QQ, LINE, ...) inherit the corrected behaviour uniformly (#1302).
+
 ### ⚠️ QQ Bot Intent Configuration Change
 The default intents for QQ Bot now include `INTERACTION_CREATE` (bit 26, value `1<<26`). If you previously set a custom `intents` value without this bit, inline keyboard buttons will not work — update your `intents` to include bit 26. If you use the default intents, no action is needed. See `config.example.toml` for the new `intents` option.
 
