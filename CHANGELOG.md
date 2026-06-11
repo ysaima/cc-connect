@@ -4,6 +4,9 @@
 - **`cc-connect cron add --silent`**: expose the `--silent` flag on the cron add CLI so users can suppress the cron start notification when creating a job. The server already accepted `silent` on `/cron/add`; only the CLI side was missing (#858).
 - **QQ Bot inline keyboard**: add support for inline keyboard buttons and INTERACTION_CREATE events. Permission requests now render as clickable buttons instead of text replies. Requires enabling the INTERACTION capability (bit 26) in the QQ Open Platform bot settings.
 
+### Fixed
+- **`/model` during in-flight turn no longer drops the reply**: switching the model while a turn is still running used to close the in-flight session immediately, killing the agent process before it could emit `turn_complete`. The user's already-generated reply was silently dropped and they got no acknowledgement. The switch is now queued on the in-flight `interactiveState` and applied automatically when the turn finishes (`EventResult{Done:true}`). If the turn does not finish within 30s, a safety-net force-apply closes the session and posts an explicit "your previous message was interrupted" notice, so the user can resend it. The no-in-flight `/model` path is unchanged (#1303).
+
 ### ⚠️ QQ Bot Intent Configuration Change
 The default intents for QQ Bot now include `INTERACTION_CREATE` (bit 26, value `1<<26`). If you previously set a custom `intents` value without this bit, inline keyboard buttons will not work — update your `intents` to include bit 26. If you use the default intents, no action is needed. See `config.example.toml` for the new `intents` option.
 
